@@ -8,7 +8,7 @@ class Tokenvalidation extends CI_Controller {
         $headers = $this->input->get_request_header('Authorization'); //get token from request header
 
         try {
-           $decoded = JWT::decode($headers, $kunci, array('HS256'));
+           $decoded = JWT::decode($headers, $this->config->item('thekey'), array('HS256'));
            $decoded_array = (array) $decoded;
            $this->set_response($decoded, REST_Controller::HTTP_OK);
         } catch (Exception $e) {
@@ -16,6 +16,4 @@ class Tokenvalidation extends CI_Controller {
              $this->set_response($invalid, REST_Controller::HTTP_BAD_REQUEST);
         }
     }
-}
-
 }
