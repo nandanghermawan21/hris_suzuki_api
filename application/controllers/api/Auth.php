@@ -5,9 +5,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
 use \Firebase\JWT\JWT;
 
 /**
- * @OA\Info(title="Game Center API", version="0.1")
+ * @OA\Info(title="HRIS Suzuki API", version="0.1")
  * servers:
- * url: /localhost/gamecenter/api/
  */
 class Auth extends BD_Controller
 {
