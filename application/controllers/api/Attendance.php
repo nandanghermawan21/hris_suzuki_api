@@ -59,6 +59,7 @@ class Attendance extends BD_Controller
                 'code_attendance' => "MCI",
                 'lat' => $json['lat'],
                 'lon' => $json['lon'],
+                'address' => $json['address'],
                 'created_date' => date('Y-m-d H:i:s'),
                 'created_by' => $userDetail->id_user
             );
@@ -116,6 +117,7 @@ class Attendance extends BD_Controller
                 'code_attendance' => "MCO",
                 'lat' => $json['lat'],
                 'lon' => $json['lon'],
+                'address' => $json['address'],
                 'created_date' => date('Y-m-d H:i:s'),
                 'created_by' => $userDetail->id_user
             );

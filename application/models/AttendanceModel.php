@@ -42,6 +42,24 @@ class AttendanceModel extends CI_Model
      * @var double
      */
     public $lon;
+
+    /**
+     * @OA\Property()
+     * @var string
+    */
+    public $address;
+
+    /**
+     * @OA\Property()
+     * @var string
+     */
+    public $created_date;
+
+    /**
+     * @OA\Property()
+     * @var string
+     */
+    public $created_by;
 }
 
 /**
@@ -60,4 +78,10 @@ class AttendanceCheckInModel extends CI_Model
      * @var double
      */
     public $lon;
+
+    /**
+     * @OA\Property()
+     * @var string
+    */
+    public $address;
 }
