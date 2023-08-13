@@ -83,4 +83,35 @@ class Auth extends BD_Controller
             $this->set_response("invalid login", 403); //This is the respon if failed
         }
     }
+
+     /**
+     * @OA\GET(path="/api/auth/profile",tags={"Auth"},
+     * @OA\RequestBody(
+     *      @OA\MediaType(
+     *          mediaType="multipart/form-data",
+     *          @OA\Schema(
+     *              @OA\Property(
+     *                  property="username",
+     *                  type="string",
+     *                  description="username"
+     *              ),
+     *              @OA\Property(
+     *                  property="password",
+     *                  type="string",
+     *                  description="password"
+     *              )
+     *          )
+     *      )
+     *  ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/user")
+     *     ),
+     *   ),
+     * )
+     */
+    public function profile_get(){
+        $this->auth();
+    }
 }

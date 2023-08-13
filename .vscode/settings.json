@@ -1,0 +1,9 @@
+{
+    "deno.lint": false,
+    "markdownlint.ignore": [
+
+    ],
+    "markdownlint.lintWorkspaceGlobs": [],
+    "php.suggest.basic": false,
+    "php.validate.enable": false,
+}
