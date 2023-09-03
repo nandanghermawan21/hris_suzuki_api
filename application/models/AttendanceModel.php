@@ -60,6 +60,85 @@ class AttendanceModel extends CI_Model
      * @var string
      */
     public $created_by;
+
+
+    //crete function get v_kehadiran
+    function get_kehadiran($q)
+    {
+        return $this->db->get_where('v_kehadiran', $q);
+    }
+
+    //create function get v_kehadiran berdasarkan id_pegawai
+    function get_kehadiran_by_id_pegawai($id_pegawai, $bulan, $tahun)
+    {
+        $this->db->where('pegawai_id', $id_pegawai);
+        //add filter berdasarkan bulan saat ini
+        $this->db->where("MONTH(tanggal) = ", $bulan ?? date('m'));
+        //add filter berdasarkan tahun saat ini
+        $this->db->where("YEAR(tanggal) = ", $tahun ?? date('Y'));
+        $this->db->order_by('tanggal', 'desc');
+        $query = $this->db->get('v_kehadiran');
+
+        //return result
+        return $query->result();
+    }
+
+    //create function get v_kehadiran berdasarkan id_pegawai
+    function get_kehadiran_bawahan_by_date($bawahan, $tanggal)
+    {
+        $this->db->where_in('pegawai_id', $bawahan);
+        $this->db->where('tanggal', $tanggal);
+        $query = $this->db->get('v_kehadiran');
+
+        //return result
+        return $query->result();
+    }
+
+    //create function get detail chek in chek out berdasarkan id_pegawai dant tanggal
+    function get_approval_kehadiran($idPegawai, $tanggal)
+    {
+        $this->db->where('id_pegawai', $idPegawai);
+        $this->db->where("CONVERT(date, created_date) = ", $tanggal);
+        $query = $this->db->get('v_approval_kehadiran');
+
+        //return result
+        return $query->result();
+    }
+
+    //reject kehadian
+    function reject_kehadiran($id, $reason, $idPegawai)
+    {
+        //get trx_attendance by id
+        $this->db->where('id_trx', $id);
+        $query = $this->db->get('trx_attendance');
+
+        //hitung jumlah data yang diperoleh
+        $count = $query->num_rows();
+
+        //jika data kurang atau sama dengan 0 maka throw exception
+        if ($count <= 0) {
+            throw new Exception("data tidak ditemukan");
+        }
+
+        try {
+            //update data trx_attendance by id
+            $this->db->where('id_trx', $id);
+            $this->db->update('trx_attendance', array('approval_status' => 0, 'approval_reason' => $reason, 'approved_by' => $idPegawai, 'approved_date' => date('Y-m-d H:i:s')));
+
+            //kembalikan data yang diupdate dari view v_approval_kehadiran
+            $this->db->where('id_attendance', $id);
+            $query = $this->db->get('v_approval_kehadiran');
+            return $query->row();
+
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+  
+
+
+
+    }
+
 }
 
 /**
@@ -84,4 +163,24 @@ class AttendanceCheckInModel extends CI_Model
      * @var string
     */
     public $address;
+
+}
+
+/**
+ * @OA\Schema(schema="AttendanceRejectModel")
+ */
+class AttendanceRejectModel extends CI_Model
+{
+    /**
+     * @OA\Property()
+     * @var double
+     */
+    public $attendanceId;
+
+    /**
+     * @OA\Property()
+     * @var String
+     */
+    public $reason;
+
 }

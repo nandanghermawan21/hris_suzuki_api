@@ -15,9 +15,14 @@ class Attendance extends BD_Controller
         parent::__construct();
         $this->auth();
         $this->load->model('M_user', 'user');
+        $this->load->model('PegawaiModel', 'pegawai');
+        //load attendance model
+        $this->load->model('AttendanceModel', 'attendance');
+        //load pegawai model
+        $this->load->model('PegawaiModel', 'pegawai');
     }
 
-   /**
+    /**
      * @OA\Post(path="/api/attendance/checkin",tags={"Attendance"},
      *     @OA\RequestBody(
      *     @OA\MediaType(
@@ -36,6 +41,9 @@ class Attendance extends BD_Controller
      */
     public function checkin_post()
     {
+        //get device id
+        $device_id = $this->input->get_request_header('Device-Id', TRUE);
+
         //getuserInfo
         $user = $this->user_data;
 
@@ -48,26 +56,45 @@ class Attendance extends BD_Controller
             $this->response(array('status' => 'failed', 'message' => 'User not found'), 404);
         }
 
+        //cehcek device id match
+        if ($userDetail->device_id != $device_id) {
+            $this->response('device tidak cocok, harap hubungi admin', 500);
+        }
+
         //decode json from request body
         $json = json_decode(file_get_contents('php://input'), true);
 
         //chekin
         try {
-            $data = array(
-                'id_pegawai' => $userDetail->id_pegawai,
-                'id_lokasi_fisik' => 1,
-                'code_attendance' => "MCI",
-                'lat' => $json['lat'],
-                'lon' => $json['lon'],
-                'address' => $json['address'],
-                'created_date' => date('Y-m-d H:i:s'),
-                'created_by' => $userDetail->id_user
-            );
-    
-            $attendance = $this->db->insert('trx_attendance', $data);
+            //dapatkan jarak dengan loaksi fisik
 
-             $this->response($data, 200);
+            try{
+                $lokasiFisik = $this->pegawai->get_distance($userDetail->id_pegawai, $json['lat'], $json['lon']);
+            }catch(\Throwable $th){
+                $this->response($th->getMessage(), 500);
+            }
 
+
+            //validasi kebijakan jarak absen
+            if ($lokasiFisik->distance > $lokasiFisik->radius) {
+                $this->response('anda berjarak ' .  number_format(round($lokasiFisik->distance), 0, ',', '.') . ' meter, jauh dari lokasi absen', 500);
+            } else {
+                $data = array(
+                    'id_pegawai' => $userDetail->id_pegawai,
+                    'id_lokasi_fisik' => 1,
+                    'code_attendance' => "MCI",
+                    'lat' => $json['lat'],
+                    'lon' => $json['lon'],
+                    'address' => $json['address'],
+                    'created_date' => date('Y-m-d H:i:s'),
+                    'created_by' => $userDetail->id_user
+                );
+
+                $attendance = $this->db->insert('trx_attendance', $data);
+                $data['distance'] = $lokasiFisik->distance;
+            }
+
+            $this->response($data, 200);
         } catch (\Throwable $th) {
             $this->response(array('status' => 'failed', 'message' => $th->getMessage()), 500);
         }
@@ -94,6 +121,9 @@ class Attendance extends BD_Controller
      */
     public function checkout_post()
     {
+        //get device id
+        $device_id = $this->input->get_request_header('Device-Id', TRUE);
+
         //getuserInfo
         $user = $this->user_data;
 
@@ -106,30 +136,250 @@ class Attendance extends BD_Controller
             $this->response(array('status' => 'failed', 'message' => 'User not found'), 404);
         }
 
+        //cehcek device id match
+        if ($userDetail->device_id != $device_id) {
+            $this->response('device tidak cocok, harap hubungi admin', 500);
+        }
+
         //decode json from request body
         $json = json_decode(file_get_contents('php://input'), true);
 
         //chekin
         try {
-            $data = array(
-                'id_pegawai' => $userDetail->id_pegawai,
-                'id_lokasi_fisik' => 1,
-                'code_attendance' => "MCO",
-                'lat' => $json['lat'],
-                'lon' => $json['lon'],
-                'address' => $json['address'],
-                'created_date' => date('Y-m-d H:i:s'),
-                'created_by' => $userDetail->id_user
-            );
-    
-            $attendance = $this->db->insert('trx_attendance', $data);
+            try{
+                $lokasiFisik = $this->pegawai->get_distance($userDetail->id_pegawai, $json['lat'], $json['lon']);
+            }catch(\Throwable $th){
+                $this->response($th->getMessage(), 500);
+            }
 
-             $this->response($data, 200);
+            if ($lokasiFisik->distance > $lokasiFisik->radius) {
+                $this->response('anda berjarak ' .  number_format(round($lokasiFisik->distance), 0, ',', '.') . ' meter, jauh dari lokasi absen', 500);
+            } else {
 
+                $data = array(
+                    'id_pegawai' => $userDetail->id_pegawai,
+                    'id_lokasi_fisik' => 1,
+                    'code_attendance' => "MCO",
+                    'lat' => $json['lat'],
+                    'lon' => $json['lon'],
+                    'address' => $json['address'],
+                    'created_date' => date('Y-m-d H:i:s'),
+                    'created_by' => $userDetail->id_user
+                );
+
+                $attendance = $this->db->insert('trx_attendance', $data);
+                $data['distance'] = $lokasiFisik->distance;
+            }
+
+            $this->response($data, 200);
         } catch (\Throwable $th) {
             $this->response(array('status' => 'failed', 'message' => $th->getMessage()), 500);
         }
 
         //retun userx
+    }
+
+    /**
+     * @OA\GET(path="/api/attendance/kehadiransaya",tags={"Attendance"},
+     *   @OA\Parameter(
+     *     name="bulan",
+     *     in="query",
+     *     description="bulan kehadiran",
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Parameter(
+     *     name="tahun",
+     *     in="query",
+     *     description="tahun kehadiran",
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/user")
+     *     ),
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function kehadiransaya_get(){
+        //dapatkan input
+        $bulan = $this->input->get('bulan');
+        $tahun = $this->input->get('tahun');
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        //get kehadiran saya using attendance model
+        try {
+            $kehadiran = $this->attendance->get_kehadiran_by_id_pegawai($userDetail->id_pegawai, $bulan, $tahun);
+            $this->response($kehadiran, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    } 
+
+    /**
+     * @OA\GET(path="/api/attendance/kehadiranpegawai",tags={"Attendance"},
+     *   @OA\Parameter(
+     *     name="tanggal",
+     *     in="query",
+     *     description="tanggal kehadiran",
+     *     required=true,
+     *     @OA\Schema(type="string", format="date")
+     *   ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/user")
+     *     ),
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function kehadiranpegawai_get(){
+        //get param
+        $tanggal = $this->input->get('tanggal');
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        //get daftar bawahan
+        try {
+            //get my detail profile
+            //get pegawai
+        $pegawai = $this->pegawai->get_pegawai(array('id_pegawai' => $userDetail->id_pegawai));
+
+        if(count($pegawai) == 0){
+            $this->response(array('Pegawai not found'), 404);
+        }
+
+        $bawahan = $this->pegawai->get_bawahan($pegawai[0]->id_cabang, $pegawai[0]->urutan);
+      
+        //collect id pegawai to array
+        $idPegawai = array();
+        foreach ($bawahan as $key => $value) {
+            array_push($idPegawai, $value->id_pegawai);
+        }
+
+        //check apakah dia memiliki bawahan
+        if(count($idPegawai) == 0){
+            $this->response(array('Anda tidak memiliki pegawai'), 404);
+        }
+
+        //get kehadiran bawahan using attendance model
+        $kehadiran = $this->attendance->get_kehadiran_bawahan_by_date($idPegawai, $tanggal);
+
+        $this->response($kehadiran, 200); 
+
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\GET(path="/api/attendance/approvalKehadiran",tags={"Attendance"},
+     *   @OA\Parameter(
+     *     name="idPegawai",
+     *     in="query",
+     *     description="idPegawai",
+     *     required=true,
+     *     @OA\Schema(type="integer")
+     *   ),
+     *   @OA\Parameter(
+     *     name="tanggal",
+     *     in="query",
+     *     description="tanggal",
+     *     required=true,
+     *     @OA\Schema(type="string", format="date")
+     *   ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/user")
+     *     ),
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function approvalKehadiran_get(){
+        //get param
+        $idPegawai = $this->input->get('idPegawai');
+        $tanggal = $this->input->get('tanggal');
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail check in check out
+        try {
+            $detailCheckInCheckOut = $this->attendance->get_approval_kehadiran($idPegawai, $tanggal);
+            $this->response($detailCheckInCheckOut, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\POST(path="/api/attendance/rejectKehadiran",tags={"Attendance"},
+     *     @OA\RequestBody(
+     *     @OA\MediaType(
+     *         mediaType="applications/json",
+     *         @OA\Schema(ref="#/components/schemas/AttendanceRejectModel")
+     *       ),
+     *     ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/user")
+     *     ),
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function rejectKehadiran_post(){
+        //get post data
+        $json = json_decode(file_get_contents('php://input'), true);
+
+        $attendanceId = $json['attendanceId'];
+        $reason = $json['reason'];
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+        
+        //call reject kehadiran dari attendance model
+        try {
+            $result = $this->attendance->reject_kehadiran($attendanceId, $reason, $userDetail->id_pegawai);
+            $this->response($result, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+
     }
 }

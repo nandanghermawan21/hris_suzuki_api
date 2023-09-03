@@ -474,14 +474,59 @@ class PegawaiModel extends CI_Model
     public $id_group_location;
 
 
-    //get pegawai only from tale pegawai
+    //get pegawai only from view profile pegawai
     public function get_pegawai($q)
     {
         $this->db->select('*');
-        $this->db->from('mst_pegawai');
+        $this->db->from('v_mst_pegawai');
         $this->db->where($q);
         $query = $this->db->get();
         return $query->result();
     }
+
+    //get pegawai saya from view profile pegawai
+    public function get_bawahan($cabangId, $urutan){
+        $this->db->select('id_pegawai, nip, nama_pegawai, cabang, level, urutan');
+        $this->db->from('v_mst_pegawai');
+        $this->db->where('id_cabang', $cabangId);
+        $this->db->where('urutan <', $urutan);
+        $query = $this->db->get();
+        return $query->result();
+    }
+
+     //get jarak karyawan dengan lokasi fisik
+     public function get_distance($id_pegawai, $lat, $lon)
+     {
+         $this->db->select('v_mst_pegawai.id_pegawai, v_mst_pegawai.id_lokasi_fisik, tbl_company_lokasi_fisik.lokasi_fisik, tbl_company_lokasi_fisik.lat, tbl_company_lokasi_fisik.lon, tbl_company_lokasi_fisik.radius, v_mst_pegawai.Grouping_Jabatan, tbl_company_group_jabatan.use_lokasi_fisik');
+         $this->db->from('v_mst_pegawai');
+         $this->db->join('tbl_company_lokasi_fisik', 'v_mst_pegawai.id_lokasi_fisik = tbl_company_lokasi_fisik.id_lokasi_fisik');
+         $this->db->join('tbl_company_group_jabatan', 'v_mst_pegawai.id_group_jabatan = tbl_company_group_jabatan.id_group_jabatan');
+         $this->db->where('v_mst_pegawai.id_pegawai', $id_pegawai);
+         $lokasiFisikQuery = $this->db->get();
+         $lokasiFisik = $lokasiFisikQuery->first_row();
+
+         if ($lokasiFisik) {
+            //cek apakah lokasi fisik di pakai
+            if($lokasiFisik->use_lokasi_fisik == 'y'){
+                if($lokasiFisik->lat == null || $lokasiFisik->lon == null){
+                    //show error ke kontroller
+                    throw new Exception('Lokasi Fisik '.$lokasiFisik->lokasi_fisik.' belum di set');
+                }
+                 //hitung jarak deng lokasi lat lon
+                $distance = $this->getDistance($lat, $lon, $lokasiFisik->lat, $lokasiFisik->lon);
+                $lokasiFisik->distance = $distance;
+            }else{
+                $lokasiFisik->distance = 0;
+            }
+         } else {
+            $lokasiFisik = null;
+         }
+
+         return $lokasiFisik;
+     }
     
+     public function getDistance($lat1, $lon1, $lat2, $lon2) {
+        $query = $this->db->query("SELECT dbo.CalculateDistanceGeography($lat1, $lon1, $lat2, $lon2) AS DistanceMeter");
+        return $query->row()->DistanceMeter;
+    }
 }
