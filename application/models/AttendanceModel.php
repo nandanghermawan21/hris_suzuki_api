@@ -106,7 +106,7 @@ class AttendanceModel extends CI_Model
     }
 
     //reject kehadian
-    function reject_kehadiran($id, $reason, $idPegawai)
+    function reject_kehadiran($id, $reason, $idPegawai, $timezone)
     {
         //get trx_attendance by id
         $this->db->where('id_trx', $id);
@@ -114,6 +114,18 @@ class AttendanceModel extends CI_Model
 
         //hitung jumlah data yang diperoleh
         $count = $query->num_rows();
+
+        //check apakah create_date sudah lebih dari 35 hari
+        $row = $query->row();
+        $create_date = $row->created_date;
+        $date1 = new DateTime($create_date);
+        $date2 = new DateTime(date('Y-m-d H:i:s'));
+        $diff = $date1->diff($date2);
+        $diffDays = $diff->days;
+
+        if($diffDays > 35){
+            throw new Exception("data tidak dapat diubah karena sudah lebih dari 35 hari");
+        }
 
         //jika data kurang atau sama dengan 0 maka throw exception
         if ($count <= 0) {
@@ -123,7 +135,7 @@ class AttendanceModel extends CI_Model
         try {
             //update data trx_attendance by id
             $this->db->where('id_trx', $id);
-            $this->db->update('trx_attendance', array('approval_status' => 0, 'approval_reason' => $reason, 'approved_by' => $idPegawai, 'approved_date' => date('Y-m-d H:i:s')));
+            $this->db->update('trx_attendance', array('approval_status' => 0, 'approval_reason' => $reason, 'approved_by' => $idPegawai, 'approved_date' => date('Y-m-d H:i:s'), 'approved_time_zone' => $timezone));
 
             //kembalikan data yang diupdate dari view v_approval_kehadiran
             $this->db->where('id_attendance', $id);
@@ -133,9 +145,6 @@ class AttendanceModel extends CI_Model
         } catch (\Throwable $th) {
             throw $th;
         }
-  
-
-
 
     }
 

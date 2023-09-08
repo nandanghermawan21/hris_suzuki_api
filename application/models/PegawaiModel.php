@@ -485,11 +485,10 @@ class PegawaiModel extends CI_Model
     }
 
     //get pegawai saya from view profile pegawai
-    public function get_bawahan($cabangId, $urutan){
-        $this->db->select('id_pegawai, nip, nama_pegawai, cabang, level, urutan');
-        $this->db->from('v_mst_pegawai');
-        $this->db->where('id_cabang', $cabangId);
-        $this->db->where('urutan <', $urutan);
+    public function get_bawahan($pegawaiId){
+        $this->db->select('*');
+        $this->db->from('v_bawahan');
+        $this->db->where('id_pegawai', $pegawaiId);
         $query = $this->db->get();
         return $query->result();
     }
@@ -497,31 +496,67 @@ class PegawaiModel extends CI_Model
      //get jarak karyawan dengan lokasi fisik
      public function get_distance($id_pegawai, $lat, $lon)
      {
-         $this->db->select('v_mst_pegawai.id_pegawai, v_mst_pegawai.id_lokasi_fisik, tbl_company_lokasi_fisik.lokasi_fisik, tbl_company_lokasi_fisik.lat, tbl_company_lokasi_fisik.lon, tbl_company_lokasi_fisik.radius, v_mst_pegawai.Grouping_Jabatan, tbl_company_group_jabatan.use_lokasi_fisik');
+         $this->db->select('id_pegawai, 
+                            id_lokasi_fisik,  
+                            lokasi_fisik,  
+                            lokasi_fisik_lat,
+                            lokasi_fisik_lon,
+                            lokasi_fisik_radius,
+                            tanggal_mulai_dinas,
+                            tanggal_selesai_dinas,
+                            id_lokasi_fisik_dinas,
+                            lokasi_fisik_dinas,
+                            lokasi_fisik_dinas_lat,
+                            lokasi_fisik_dinas_lon,
+                            lokasi_fisik_dinas_radius,
+                            judul_surat_dinas,
+                            nomor_surat_dinas,
+                            Grouping_Jabatan,
+                            use_lokasi_fisik,
+                            need_photo'
+         );
          $this->db->from('v_mst_pegawai');
-         $this->db->join('tbl_company_lokasi_fisik', 'v_mst_pegawai.id_lokasi_fisik = tbl_company_lokasi_fisik.id_lokasi_fisik');
-         $this->db->join('tbl_company_group_jabatan', 'v_mst_pegawai.id_group_jabatan = tbl_company_group_jabatan.id_group_jabatan');
          $this->db->where('v_mst_pegawai.id_pegawai', $id_pegawai);
          $lokasiFisikQuery = $this->db->get();
          $lokasiFisik = $lokasiFisikQuery->first_row();
 
          if ($lokasiFisik) {
+            //definen lat lon yang akan digunakan
+            $lokasiFisikIdActual = $lokasiFisik->id_lokasi_fisik;
+            $lokasiFisikActual = $lokasiFisik->lokasi_fisik;
+            $lokasiFisikLat = $lokasiFisik->lokasi_fisik_lat;
+            $lokasiFisikLon = $lokasiFisik->lokasi_fisik_lon;
+            $radius = $lokasiFisik->lokasi_fisik_radius;
+
+
+            //cek apakah lokasi fisik dinas bukan null
+            if($lokasiFisik->id_lokasi_fisik_dinas != null){
+                $lokasiFisikIdActual = $lokasiFisik->id_lokasi_fisik_dinas;
+                $lokasiFisikActual = 'Dinas ' . $lokasiFisik->lokasi_fisik_dinas;
+                $lokasiFisikLat = $lokasiFisik->lokasi_fisik_dinas_lat;
+                $lokasiFisikLon = $lokasiFisik->lokasi_fisik_dinas_lon;
+                $radius = $lokasiFisik->lokasi_fisik_dinas_radius;
+            }
+
             //cek apakah lokasi fisik di pakai
             if($lokasiFisik->use_lokasi_fisik == 'y'){
-                if($lokasiFisik->lat == null || $lokasiFisik->lon == null){
+                if($lokasiFisikLat == null || $lokasiFisikLon == null){
                     //show error ke kontroller
-                    throw new Exception('Lokasi Fisik '.$lokasiFisik->lokasi_fisik.' belum di set');
+                    throw new Exception('Lokasi Fisik '.$lokasiFisikActual.' belum di set');
                 }
                  //hitung jarak deng lokasi lat lon
-                $distance = $this->getDistance($lat, $lon, $lokasiFisik->lat, $lokasiFisik->lon);
+                $distance = $this->getDistance($lat, $lon, $lokasiFisik->lokasi_fisik_lat, $lokasiFisik->lokasi_fisik_lon);
                 $lokasiFisik->distance = $distance;
             }else{
                 $lokasiFisik->distance = 0;
             }
+            
          } else {
             $lokasiFisik = null;
          }
-
+         $lokasiFisik->lokasiFisikIdActual = $lokasiFisikIdActual;
+         $lokasiFisik->lokasiFisikActual = $lokasiFisikActual;
+         $lokasiFisik->radius = $radius;
          return $lokasiFisik;
      }
     

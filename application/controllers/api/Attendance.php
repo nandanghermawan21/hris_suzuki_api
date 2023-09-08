@@ -43,6 +43,8 @@ class Attendance extends BD_Controller
     {
         //get device id
         $device_id = $this->input->get_request_header('Device-Id', TRUE);
+        $timezone = $this->input->get_request_header('TimeZone', TRUE);
+        $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
 
         //getuserInfo
         $user = $this->user_data;
@@ -81,13 +83,15 @@ class Attendance extends BD_Controller
             } else {
                 $data = array(
                     'id_pegawai' => $userDetail->id_pegawai,
-                    'id_lokasi_fisik' => 1,
+                    'id_lokasi_fisik' => $lokasiFisik->lokasiFisikIdActual,
                     'code_attendance' => "MCI",
                     'lat' => $json['lat'],
                     'lon' => $json['lon'],
                     'address' => $json['address'],
                     'created_date' => date('Y-m-d H:i:s'),
-                    'created_by' => $userDetail->id_user
+                    'created_time_zone' => $timezone,
+                    'created_by' => $userDetail->id_user,
+                    'attendance_image' => $json['image'],
                 );
 
                 $attendance = $this->db->insert('trx_attendance', $data);
@@ -123,6 +127,8 @@ class Attendance extends BD_Controller
     {
         //get device id
         $device_id = $this->input->get_request_header('Device-Id', TRUE);
+        $timezone = $this->input->get_request_header('TimeZone', TRUE);
+        $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
 
         //getuserInfo
         $user = $this->user_data;
@@ -158,13 +164,15 @@ class Attendance extends BD_Controller
 
                 $data = array(
                     'id_pegawai' => $userDetail->id_pegawai,
-                    'id_lokasi_fisik' => 1,
+                    'id_lokasi_fisik' => $lokasiFisik->lokasiFisikIdActual,
                     'code_attendance' => "MCO",
                     'lat' => $json['lat'],
                     'lon' => $json['lon'],
                     'address' => $json['address'],
                     'created_date' => date('Y-m-d H:i:s'),
-                    'created_by' => $userDetail->id_user
+                    'created_time_zone' => $timezone,
+                    'created_by' => $userDetail->id_user,
+                    'attendance_image' => $json['image'],
                 );
 
                 $attendance = $this->db->insert('trx_attendance', $data);
@@ -264,20 +272,13 @@ class Attendance extends BD_Controller
 
         //get daftar bawahan
         try {
-            //get my detail profile
-            //get pegawai
-        $pegawai = $this->pegawai->get_pegawai(array('id_pegawai' => $userDetail->id_pegawai));
-
-        if(count($pegawai) == 0){
-            $this->response(array('Pegawai not found'), 404);
-        }
-
-        $bawahan = $this->pegawai->get_bawahan($pegawai[0]->id_cabang, $pegawai[0]->urutan);
+       
+        $bawahan = $this->pegawai->get_bawahan($userDetail->id_pegawai);
       
         //collect id pegawai to array
         $idPegawai = array();
         foreach ($bawahan as $key => $value) {
-            array_push($idPegawai, $value->id_pegawai);
+            array_push($idPegawai, $value->id_bawahan);
         }
 
         //check apakah dia memiliki bawahan
@@ -355,6 +356,11 @@ class Attendance extends BD_Controller
      * )
      */
     public function rejectKehadiran_post(){
+         //get device id
+         $device_id = $this->input->get_request_header('Device-Id', TRUE);
+         $timezone = $this->input->get_request_header('TimeZone', TRUE);
+         $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
+
         //get post data
         $json = json_decode(file_get_contents('php://input'), true);
 
@@ -375,7 +381,7 @@ class Attendance extends BD_Controller
         
         //call reject kehadiran dari attendance model
         try {
-            $result = $this->attendance->reject_kehadiran($attendanceId, $reason, $userDetail->id_pegawai);
+            $result = $this->attendance->reject_kehadiran($attendanceId, $reason, $userDetail->id_pegawai, $timezone);
             $this->response($result, 200);
         } catch (\Throwable $th) {
             $this->response($th->getMessage(), 500);
