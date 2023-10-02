@@ -388,4 +388,342 @@ class Attendance extends BD_Controller
         }
 
     }
+
+    /**
+     * @OA\GET(path="/api/attendance/getIzinTersedia",tags={"Attendance"},
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/CategoryAttendanceModel")
+     *     ),
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function getIzinTersedia_get(){
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        //get daftar izin tersedia
+        try {
+            $daftarIzinTersedia = $this->attendance->daftar_izin_tersedia($userDetail->id_pegawai);
+            $this->response($daftarIzinTersedia, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\GET(path="/api/attendance/getCutiTersedia",tags={"Attendance"},
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/CategoryAttendanceModel")
+     *     ),
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function getCutiTersedia_get(){
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        //get daftar izin tersedia
+        try {
+            $daftarIzinTersedia = $this->attendance->daftar_cuti_tersedia($userDetail->id_pegawai);
+            $this->response($daftarIzinTersedia, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\POST(path="/api/attendance/submitIzin",tags={"Attendance"},
+     *     @OA\RequestBody(
+     *     @OA\MediaType(
+     *         mediaType="applications/json",
+     *         @OA\Schema(ref="#/components/schemas/AttendanceLeaveModel")
+     *       ),
+     *     ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/AttendanceLeaveModel")
+     *     ),
+     *   ),
+     * @OA\Parameter(
+     *     name="Device-Id",
+     *     in="header",
+     *     required=true,
+     *     @OA\Schema(
+     *         type="string"
+     *     ),
+     *     description="Device ID"
+     *  ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function submitIzin_post(){
+        //get device id
+        $device_id = $this->input->get_request_header('Device-Id', TRUE);
+        $timezone = $this->input->get_request_header('TimeZone', TRUE);
+        $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
+
+        //get post data
+        $json = json_decode(file_get_contents('php://input'), true);
+
+        $idAttendace = $json['idAttendance'];
+        $reason = $json['reason'];
+        $dates = $json['dates'];
+        $attachment = $json['attachment'];
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        // //cehcek device id match
+        // if ($userDetail->device_id != $device_id) {
+        //     $this->response('device tidak cocok, harap hubungi admin', 500);
+        // }
+
+        //call submit izin dari attendance model
+        try {
+            $result = $this->attendance->submit_izin($userDetail->id_pegawai, $idAttendace, $dates, $reason, $attachment, $timezone, $timezoneName);
+            $this->response("{success:true}", 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\POST(path="/api/attendance/submitCuti",tags={"Attendance"},
+     *     @OA\RequestBody(
+     *     @OA\MediaType(
+     *         mediaType="applications/json",
+     *         @OA\Schema(ref="#/components/schemas/AttendanceLeaveModel")
+     *       ),
+     *     ),
+     *   @OA\Response(response=200,
+     *     description="basic user info",
+     *     @OA\JsonContent(
+     *       @OA\Items(ref="#/components/schemas/AttendanceLeaveModel")
+     *     ),
+     *   ),
+     * @OA\Parameter(
+     *     name="Device-Id",
+     *     in="header",
+     *     required=true,
+     *     @OA\Schema(
+     *         type="string"
+     *     ),
+     *     description="Device ID"
+     *  ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function submitCuti_post(){
+        //get device id
+        $device_id = $this->input->get_request_header('Device-Id', TRUE);
+        $timezone = $this->input->get_request_header('TimeZone', TRUE);
+        $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
+
+        //get post data
+        $json = json_decode(file_get_contents('php://input'), true);
+
+        $idAllowance = $json['idAllowance'];
+        $idAttendace = $json['idAttendance'];
+        $reason = $json['reason'];
+        $dates = $json['dates'];
+        $attachment = $json['attachment'];
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        // //cehcek device id match
+        // if ($userDetail->device_id != $device_id) {
+        //     $this->response('device tidak cocok, harap hubungi admin', 500);
+        // }
+
+        //call submit izin dari attendance model
+        try {
+            $result = $this->attendance->submit_cuti($userDetail->id_pegawai, $idAllowance, $idAttendace, $dates, $reason, $attachment, $timezone, $timezoneName);
+            $this->response("{success:true}", 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\GET(path="/api/attendance/myLeave",tags={"Attendance"},
+     *   @OA\Parameter(
+     *     name="skip",
+     *     in="query",
+     *     description="skip",
+     *     required=true,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Parameter(
+     *     name="take",
+     *     in="query",
+     *     description="take",
+     *     required=true,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Response(response=200,
+     *     description="leave info",
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function myLeave_get(){
+        //get param
+        $skip = $this->input->get('skip');
+        $take = $this->input->get('take');
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        //get my leave
+        try {
+            $myLeave = $this->attendance->get_my_leave($userDetail->id_pegawai, $skip, $take);
+            $this->response($myLeave, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\GET(path="/api/attendance/bawahanLeave",tags={"Attendance"},
+     *   @OA\Parameter(
+     *     name="skip",
+     *     in="query",
+     *     description="skip",
+     *     required=true,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Parameter(
+     *     name="take",
+     *     in="query",
+     *     description="take",
+     *     required=true,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Response(response=200,
+     *     description="leave info",
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function bawahanLeave_get(){
+        //get param
+        $skip = $this->input->get('skip');
+        $take = $this->input->get('take');
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        //get my leave
+        try {
+            $bawahanLeave = $this->attendance->get_bawahan_leave($userDetail->id_pegawai, $skip, $take);
+            $this->response($bawahanLeave, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
+     * @OA\POST(path="/api/attendance/approvalLeave",tags={"Attendance"},
+     *     @OA\RequestBody(
+     *     @OA\MediaType(
+     *         mediaType="applications/json",
+     *         @OA\Schema(ref="#/components/schemas/LeaveApprovalModel")
+     *       ),
+     *     ),
+     *   @OA\Response(response=200,
+     *     description="leave info",
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function approvalLeave_post(){
+        //get header data
+        $device_id = $this->input->get_request_header('Device-Id', TRUE);
+        $timezone = $this->input->get_request_header('TimeZone', TRUE);
+        $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
+
+        //get post data
+        $json = json_decode(file_get_contents('php://input'), true);
+
+        $idLeave = $json['leaveId'];
+        $status = $json['accept'] == true ? "Disetujui" : "Ditolak";
+        $reason = $json['reason'];
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+        
+        //call approval leave dari attendance model
+        try {
+            $result = $this->attendance->approval_leave($idLeave, $userDetail->id_pegawai, $status, $reason, $timezone, $timezoneName);
+            $this->response($result, 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
 }

@@ -513,12 +513,15 @@ class PegawaiModel extends CI_Model
                             nomor_surat_dinas,
                             Grouping_Jabatan,
                             use_lokasi_fisik,
-                            need_photo'
+                            need_photo,
+                            user_need_photo,
+                            user_use_lokasi_fisik',
          );
          $this->db->from('v_mst_pegawai');
          $this->db->where('v_mst_pegawai.id_pegawai', $id_pegawai);
          $lokasiFisikQuery = $this->db->get();
          $lokasiFisik = $lokasiFisikQuery->first_row();
+
 
          if ($lokasiFisik) {
             //definen lat lon yang akan digunakan
@@ -528,9 +531,8 @@ class PegawaiModel extends CI_Model
             $lokasiFisikLon = $lokasiFisik->lokasi_fisik_lon;
             $radius = $lokasiFisik->lokasi_fisik_radius;
 
-
             //cek apakah lokasi fisik dinas bukan null
-            if($lokasiFisik->id_lokasi_fisik_dinas != null){
+            if($lokasiFisik->id_lokasi_fisik_dinas != null && $lokasiFisik->id_lokasi_fisik_dinas != 0){
                 $lokasiFisikIdActual = $lokasiFisik->id_lokasi_fisik_dinas;
                 $lokasiFisikActual = 'Dinas ' . $lokasiFisik->lokasi_fisik_dinas;
                 $lokasiFisikLat = $lokasiFisik->lokasi_fisik_dinas_lat;
@@ -538,19 +540,37 @@ class PegawaiModel extends CI_Model
                 $radius = $lokasiFisik->lokasi_fisik_dinas_radius;
             }
 
-            //cek apakah lokasi fisik di pakai
-            if($lokasiFisik->use_lokasi_fisik == 'y'){
-                if($lokasiFisikLat == null || $lokasiFisikLon == null){
-                    //show error ke kontroller
-                    throw new Exception('Lokasi Fisik '.$lokasiFisikActual.' belum di set');
+            //check settingan direct per user
+            if($lokasiFisik->user_use_lokasi_fisik != null){
+                if($lokasiFisik->user_use_lokasi_fisik == 'y'){
+                    if($lokasiFisikLat == null || $lokasiFisikLon == null){
+                        //show error ke kontroller
+                        throw new Exception('Lokasi Fisik '.$lokasiFisikActual.' belum di set');
+                    }
+                    //hitung jarak deng lokasi lat lon
+                    $distance = $this->getDistance($lat, $lon, $lokasiFisik->lokasi_fisik_lat, $lokasiFisik->lokasi_fisik_lon);
+                    $lokasiFisik->distance = $distance;
+                }else{
+                    $lokasiFisik->distance = 0;
                 }
-                 //hitung jarak deng lokasi lat lon
-                $distance = $this->getDistance($lat, $lon, $lokasiFisik->lokasi_fisik_lat, $lokasiFisik->lokasi_fisik_lon);
-                $lokasiFisik->distance = $distance;
             }else{
-                $lokasiFisik->distance = 0;
+                if($lokasiFisikIdActual == null || $lokasiFisikIdActual != 0){
+                    //cek apakah lokasi fisik di pakai
+                    if($lokasiFisik->use_lokasi_fisik == 'y'){
+                        if($lokasiFisikLat == null || $lokasiFisikLon == null){
+                            //show error ke kontroller
+                            throw new Exception('Lokasi Fisik '.$lokasiFisikActual.' belum di set');
+                        }
+                        //hitung jarak deng lokasi lat lon
+                        $distance = $this->getDistance($lat, $lon, $lokasiFisik->lokasi_fisik_lat, $lokasiFisik->lokasi_fisik_lon);
+                        $lokasiFisik->distance = $distance;
+                    }else{
+                        $lokasiFisik->distance = 0;
+                    }
+                }else{
+                    $lokasiFisik->distance = 0;
+                }
             }
-            
          } else {
             $lokasiFisik = null;
          }
