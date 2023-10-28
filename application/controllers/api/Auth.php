@@ -61,7 +61,7 @@ class Auth extends BD_Controller
     */
     public function login_post()
     {
-        $d = $userAgent = $this->input->get_request_header('Device-Id');
+        $d =  $this->input->get_request_header('Device-Id');
 
         $u = $this->post('username'); //Username Posted
         $p = $this->post('password'); //Pasword Posted
@@ -72,6 +72,56 @@ class Auth extends BD_Controller
             $kunci = $this->config->item('thekey');
             $token['id'] = $user->id_user;  //From here
             $token['username'] = $u;
+            $token['level'] = $user->id_user_level;
+            $date = new DateTime();
+            $token['iat'] = $date->getTimestamp();
+            $token['exp'] = $date->getTimestamp() + 60 * 60 * 5; //To here is to generate token
+            $output['token'] = JWT::encode($token, $kunci); //This is the output token
+
+            //result the user
+            $user->token = $output['token'];
+
+            //set response
+            $this->set_response($user, 200);
+
+        } catch (\Throwable $th) {
+            $this->set_response($th->getMessage(), 500);
+        } 
+    }
+
+     /**
+     * @OA\POST(path="/api/auth/activasi",tags={"Auth"},
+     *     @OA\RequestBody(
+     *     @OA\MediaType(
+     *         mediaType="applications/json",
+     *         @OA\Schema(ref="#/components/schemas/LeaveApprovalModel")
+     *       ),
+     *     ),
+     *   @OA\Response(response=200,
+     *     description="leave info",
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function activasi_post()
+    {
+        $d = $this->input->get_request_header('Device-Id');
+
+        //get post data
+        $json = json_decode(file_get_contents('php://input'), true);
+
+        $nip = $json['nip'];
+        $nama = $json['nama'];
+        $tglLahir = $json['tglLahir'];
+        $tglMulaiKerja = $json['tglMulaiKerja'];
+        $password = $json['password'];
+        
+        try {
+            $user = $this->user->activate($nip, $nama, $tglLahir, $tglMulaiKerja, $password, $d);
+
+            $kunci = $this->config->item('thekey');
+            $token['id'] = $user->id_user;  //From here
+            $token['username'] = $nip;
             $token['level'] = $user->id_user_level;
             $date = new DateTime();
             $token['iat'] = $date->getTimestamp();
