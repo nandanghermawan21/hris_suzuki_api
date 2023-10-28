@@ -255,6 +255,50 @@ class AttendanceModel extends CI_Model
         }
     }
 
+    function cancel_leave($id, $reason, $idPegawai, $timezone, $timezoneName){
+        try {
+            //get trx_hrd_leave by id and pegawai_id
+            $this->db->where('id_leave', $id);
+            $this->db->where('id_pegawai', $idPegawai);
+            $query = $this->db->get('trx_hrd_leave');
+
+            //hitung jumlah data yang diperoleh
+            $count = $query->num_rows();
+
+            //jika data kurang atau sama dengan 0 maka throw exception
+            if ($count <= 0) {
+                throw new Exception("data tidak ditemukan");
+            }
+
+            //jika status sudah di approve maka ubah jadi Menunggu Persetujuan Pembatalan
+            //siapkan array untuk update
+            $data = array();
+            $data['tgl_pengajuan_pembatalan'] = date('Y-m-d H:i:s');
+            $data['tgl_pengajuan_pembatalan_timezone'] = $timezone;
+            $data['tgl_pengajuan_pembatalan_timezone_name'] = $timezoneName;
+            $data['reason_pembatalan'] = $reason;
+
+            $row = $query->row();
+            if($row->status == 'Disetujui'){
+                $data["status"] = 'Menunggu Persetujuan Pembatalan';
+            }else{
+                $data["status"] = 'Dibatalkan';
+            }
+
+            //update data trx_hrd_leave by id
+            $this->db->where('id_leave', $id);
+            $this->db->update('trx_hrd_leave', $data);
+
+            //kembalikan data yang diupdate dari view v_approval_leave
+            $this->db->where('id', $id);
+            $query = $this->db->get('v_approval_leave');
+            return $query->row();
+
+        } catch (\Throwable $th) {
+            throw $th;
+        }
+    }
+
     //get data leave saya
     function get_my_leave($idPegawai, $skip, $take){
         try {
@@ -271,6 +315,8 @@ class AttendanceModel extends CI_Model
     function get_bawahan_leave($idAtasan, $skip, $take){
         try {
             $this->db->where_in('id_atasan', $idAtasan);
+            //cehck status nya bukan dibatalkan
+            $this->db->where('status !=', 'Dibatalkan');
             $this->db->order_by('tgl_pengajuan', 'desc');
             $query = $this->db->get('v_approval_leave', $take, $skip);
             return $query->result();
@@ -294,9 +340,32 @@ class AttendanceModel extends CI_Model
                 throw new Exception("data tidak ditemukan");
             }
 
+            // "Disetujui" : "Ditolak"
+            $row = $query->row();
+            // check apakah satus saat ini adalah menunggu persetujuan
+            $data = array();
+            if($row->status == 'Menunggu Persetujuan' || $row->status == 'Disetujui' || $row->status == 'Ditolak'){
+                //siapkan array
+                $data['approved_by'] = $idPegawai;
+                $data['approved_reason'] = $reason;
+                $data['approved_date'] = date('Y-m-d H:i:s');
+                $data['approved_timezone'] = $timezone;
+                $data['approved_timezone_name'] = $timezoneName;
+                $data['status'] = $status == true ? 'Disetujui' : 'Ditolak';
+            } else if($row->status == 'Menunggu Persetujuan Pembatalan' || $row->status == 'Pembatalan Disetujui' || $row->status == 'Pembatalan Ditolak'){
+                $data['approved_by_pembatalan'] = $idPegawai;
+                $data['approved_reason_pembatalan'] = $reason;
+                $data['approved_date_pembatalan'] = date('Y-m-d H:i:s');
+                $data['approved_timezone_pembatalan'] = $timezone;
+                $data['approved_timezone_name_pembatalan'] = $timezoneName;
+                $data['status'] = $status == true ? 'Pembatalan Disetujui' : 'Pembatalan Ditolak';
+            }else{
+                throw new Exception("data tidak dapat diubah karena sudah ");
+            }
+            
             //update data trx_hrd_leave by id
             $this->db->where('id_leave', $id);
-            $this->db->update('trx_hrd_leave', array('status' => $status, 'approved_by' => $idPegawai, 'approved_reason' => $reason, 'approved_date' => date('Y-m-d H:i:s'), 'approved_timezone' => $timezone, 'approved_timezone_name' => $timezoneName));
+            $this->db->update('trx_hrd_leave', $data);
 
             //kembalikan data yang diupdate dari view v_approval_leave
             $this->db->where('id', $id);
@@ -353,6 +422,24 @@ class AttendanceRejectModel extends CI_Model
 
 }
 
+/**
+ * @OA\Schema(schema="LeaveCancellModel")
+ */
+class LeaveCancellModel extends CI_Model
+{
+    /**
+     * @OA\Property()
+     * @var double
+     */
+    public $leaveId;
+
+    /**
+     * @OA\Property()
+     * @var String
+     */
+    public $reason;
+
+}
 /**
  * @OA\Schema(schema="LeaveApprovalModel")
  */

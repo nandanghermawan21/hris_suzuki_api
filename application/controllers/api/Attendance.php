@@ -589,6 +589,58 @@ class Attendance extends BD_Controller
     }
 
     /**
+     * @OA\POST(path="/api/attendance/cancelLeave",tags={"Attendance"},
+     *     @OA\RequestBody(
+     *     @OA\MediaType(
+     *         mediaType="applications/json",
+     *         @OA\Schema(ref="#/components/schemas/LeaveCancellModel")
+     *       ),
+     *     ),
+     *   @OA\Response(response=200,
+     *     description="leave info",
+     *   ),
+     *   security={{"token": {}}},
+     * )
+     */
+    public function cancelLeave_post(){
+        //get device id
+        $device_id = $this->input->get_request_header('Device-Id', TRUE);
+        $timezone = $this->input->get_request_header('TimeZone', TRUE);
+        $timezoneName = $this->input->get_request_header('TimeZoneName', TRUE);
+
+         //get post data
+         $json = json_decode(file_get_contents('php://input'), true);
+
+         $idLeave = $json['leaveId'];
+         $reason = $json['reason'];
+
+        //get user from jwt token
+        $user = $this->user_data;
+
+        //get detail; data user
+        $q = array('id_user' => $user->id); //For where query condition
+        $userDetail = $this->user->get_user($q)->row(); //Model to get single data row from database base on username
+
+        //check if user already exist
+        if ($userDetail == null) {
+            $this->response("user tidak ditemukan", 500);
+        }
+
+        // //cehcek device id match
+        // if ($userDetail->device_id != $device_id) {
+        //     $this->response('device tidak cocok, harap hubungi admin', 500);
+        // }
+
+        //call cancel izin dari attendance model
+        try {
+            $result = $this->attendance->cancel_leave($idLeave, $reason, $userDetail->id_pegawai, $timezone, $timezoneName);
+            $this->response("{success:true}", 200);
+        } catch (\Throwable $th) {
+            $this->response($th->getMessage(), 500);
+        }
+    }
+
+    /**
      * @OA\GET(path="/api/attendance/myLeave",tags={"Attendance"},
      *   @OA\Parameter(
      *     name="skip",
@@ -708,7 +760,7 @@ class Attendance extends BD_Controller
         $json = json_decode(file_get_contents('php://input'), true);
 
         $idLeave = $json['leaveId'];
-        $status = $json['accept'] == true ? "Disetujui" : "Ditolak";
+        $status = $json['accept'];
         $reason = $json['reason'];
 
         //get user from jwt token
